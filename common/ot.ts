@@ -1,4 +1,4 @@
-import { DiffResult } from '../server/versioning';
+import type { DiffResult } from '../server/versioning';
 
 export interface Operation {
   type: 'retain' | 'insert' | 'delete';
@@ -99,6 +99,12 @@ export function transformOperations(
 
   while (clientIndex < clientOps.length) {
     const clientOp = clientOps[clientIndex];
+
+    if (!clientOp) {
+      clientIndex++;
+      continue;
+    }
+
     const serverOp = serverOps[serverIndex];
 
     if (!serverOp) {
