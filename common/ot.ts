@@ -1,4 +1,4 @@
-import { DiffResult } from '../server/versioning';
+import type { DiffResult } from '../server/versioning';
 
 export interface Operation {
   type: 'retain' | 'insert' | 'delete';
@@ -99,27 +99,31 @@ export function transformOperations(
 
   while (clientIndex < clientOps.length) {
     const clientOp = clientOps[clientIndex];
+    if (!clientOp) {
+      clientIndex++;
+      continue;
+    }
     const serverOp = serverOps[serverIndex];
 
     if (!serverOp) {
       // No more server ops, just apply remaining client ops with offset
       transformed.push({
-        ...clientOp,
-        position: clientOp.position + positionOffset,
+        ...clientOp!,
+        position: clientOp!.position + positionOffset,
       });
       clientIndex++;
       continue;
     }
 
     // Compare positions
-    if (clientOp.position < serverOp.position) {
+    if (clientOp!.position < serverOp.position) {
       // Client operation comes before server operation
       transformed.push({
-        ...clientOp,
-        position: clientOp.position + positionOffset,
+        ...clientOp!,
+        position: clientOp!.position + positionOffset,
       });
       clientIndex++;
-    } else if (clientOp.position > serverOp.position) {
+    } else if (clientOp!.position > serverOp.position) {
       // Server operation comes before client operation
       // Adjust client operation position based on server operation
       if (serverOp.type === 'insert') {
@@ -130,20 +134,20 @@ export function transformOperations(
       serverIndex++;
     } else {
       // Operations at same position - conflict resolution
-      if (clientOp.type === 'insert' && serverOp.type === 'insert') {
+      if (clientOp!.type === 'insert' && serverOp.type === 'insert') {
         // Both inserting at same position - server wins, client gets pushed forward
         transformed.push({
-          ...clientOp,
-          position: clientOp.position + (serverOp.text?.length || 0),
+          ...clientOp!,
+          position: clientOp!.position + (serverOp.text?.length || 0),
         });
-      } else if (clientOp.type === 'delete' && serverOp.type === 'delete') {
+      } else if (clientOp!.type === 'delete' && serverOp.type === 'delete') {
         // Both deleting same thing - no-op (already deleted by server)
         // Skip this client operation
       } else {
         // Mixed operations - apply with current offset
         transformed.push({
-          ...clientOp,
-          position: clientOp.position + positionOffset,
+          ...clientOp!,
+          position: clientOp!.position + positionOffset,
         });
       }
       clientIndex++;
