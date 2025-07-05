@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Optimistic Sync Notepad</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<script>
+		tailwind.config = {
+			theme: {
+				extend: {
+					colors: {
+						purple: {
+							50: '#faf5ff',
+							100: '#f3e8ff',
+							200: '#e9d5ff',
+							300: '#d8b4fe',
+							400: '#c084fc',
+							500: '#a855f7',
+							600: '#9333ea',
+							700: '#7c3aed',
+							800: '#6b21a8',
+							900: '#581c87',
+						}
+					}
+				}
+			}
+		}
+	</script>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+	<style>
+		body {
+			font-family: 'Inter', sans-serif;
+		}
+
+		/* Collaborative cursor styles */
+		.collaborative-cursor {
+			position: absolute;
+			pointer-events: none;
+			z-index: 1000;
+		}
+
+		.cursor-caret {
+			width: 2px;
+			height: 20px;
+			border-radius: 1px;
+			animation: blink 1s infinite;
+		}
+
+		.cursor-label {
+			position: absolute;
+			top: -25px;
+			left: -4px;
+			padding: 2px 6px;
+			border-radius: 4px;
+			font-size: 11px;
+			font-weight: 500;
+			color: white;
+			white-space: nowrap;
+			transform: translateX(-50%);
+		}
+
+		.cursor-selection {
+			position: absolute;
+			opacity: 0.3;
+			border-radius: 2px;
+		}
+
+		@keyframes blink {
+
+			0%,
+			50% {
+				opacity: 1;
+			}
+
+			51%,
+			100% {
+				opacity: 0;
+			}
+		}
+
+		/* Custom scrollbar for dark mode */
+		.custom-scrollbar::-webkit-scrollbar {
+			width: 8px;
+		}
+
+		.custom-scrollbar::-webkit-scrollbar-track {
+			background: #374151;
+			border-radius: 4px;
+		}
+
+		.custom-scrollbar::-webkit-scrollbar-thumb {
+			background: #6b7280;
+			border-radius: 4px;
+		}
+
+		.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+			background: #9ca3af;
+		}
+	</style>
+</head>
+
+<body class="bg-neutral-950 min-h-screen text-white">
+	<div class="max-w-5xl mx-auto px-6 py-8">
+		<!-- Header -->
+		<header class="mb-8">
+			<div class="flex items-center justify-between">
+				<div>
+					<h1 class="text-3xl font-semibold text-white mb-2">Collaborative Notepad</h1>
+					<p class="text-gray-400">Real-time collaborative text editor with live cursors</p>
+				</div>
+				<div class="flex items-center space-x-4">
+					<!-- Room Info -->
+					<div class="flex items-center space-x-3 px-4 py-2 bg-gray-950 border border-neutral-700 rounded-lg">
+						<div class="flex items-center space-x-2">
+							<svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+									d="M17 20h5v-2a3 3 0 00-5.916-.75M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.916-.75M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z">
+								</path>
+							</svg>
+							<span id="user-count" class="text-sm font-medium text-neutral-400">1 user online</span>
+						</div>
+					</div>
+
+					<!-- Sync Status -->
+					<div id="sync-status"
+						class="flex items-center space-x-2 px-3 py-2 bg-green-900/30 border border-green-700/50 rounded-lg">
+						<div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+						<span class="text-sm font-medium text-green-300">Connected</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- Active Users -->
+			<div id="active-users" class="mt-4 flex items-center space-x-2">
+				<span class="text-sm text-gray-400">Active users:</span>
+				<div id="user-avatars" class="flex items-center space-x-2">
+					<!-- User avatars will be populated here -->
+				</div>
+			</div>
+		</header>
+
+		<!-- Main Editor -->
+		<main class="bg-neutral-900 rounded-xl border border-neutral-700 shadow-2xl overflow-hidden">
+			<!-- Toolbar -->
+			<div class="flex items-center justify-between px-6 py-4 border-b border-neutral-700 bg-neutral-800/50">
+				<div class="flex items-center space-x-4">
+					<div class="flex items-center space-x-2">
+						<div class="w-3 h-3 bg-purple-500 rounded-full"></div>
+						<span class="text-sm font-medium text-gray-300">Document</span>
+					</div>
+					<div class="w-px h-4 bg-gray-600"></div>
+					<span id="word-count" class="text-sm text-gray-400">0 words</span>
+					<span id="char-count" class="text-sm text-gray-400">0 characters</span>
+					<div class="w-px h-4 bg-gray-600"></div>
+					<span id="line-count" class="text-sm text-gray-400">1 line</span>
+				</div>
+				<div class="flex items-center space-x-3">
+					<button id="save-button"
+						class="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800 transition-all duration-200 transform hover:scale-105">
+						<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+								d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12">
+							</path>
+						</svg>
+						Save
+					</button>
+					<button id="share-button"
+						class="inline-flex items-center px-4 py-2 bg-gray-700 text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-800 transition-colors">
+						<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+								d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z">
+							</path>
+						</svg>
+						Share
+					</button>
+				</div>
+			</div>
+
+			<!-- Text Editor Container -->
+			<div class="relative">
+				<!-- Collaborative Cursors Overlay -->
+				<div id="cursor-overlay" class="absolute inset-0 pointer-events-none z-10"></div>
+
+				<!-- Text Editor -->
+				<textarea id="editor" placeholder="Start writing your collaborative document..."
+					class="w-full h-96 p-6 bg-transparent border-0 resize-none focus:outline-none text-gray-100 placeholder-gray-500 leading-relaxed custom-scrollbar"
+					style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;"></textarea>
+			</div>
+		</main>
+
+		<!-- Status Bar -->
+		<div class="mt-6 flex items-center justify-between text-sm">
+			<div class="flex items-center space-x-4 text-gray-400">
+				<div class="flex items-center space-x-2">
+					<div class="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+					<span>Open this page in multiple tabs to test real-time collaboration</span>
+				</div>
+			</div>
+			<div id="status" class="flex items-center space-x-2 text-gray-400">
+				<span>Ready</span>
+			</div>
+		</div>
+
+		<!-- Room ID Display -->
+		<div class="mt-4 p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
+			<div class="flex items-center justify-between">
+				<div>
+					<span class="text-sm text-gray-400">Room ID:</span>
+					<code id="room-id"
+						class="ml-2 px-2 py-1 bg-gray-700 text-purple-300 rounded text-sm font-mono">my-test-note</code>
+				</div>
+				<button id="copy-room-id"
+					class="px-3 py-1 bg-purple-600/20 text-purple-300 text-sm rounded hover:bg-purple-600/30 transition-colors">
+					Copy Link
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<script type="module" src="app.ts"></script>
+</body>
+
+</html>
