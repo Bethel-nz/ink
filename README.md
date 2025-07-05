@@ -140,9 +140,6 @@ The server is the single source of truth and is responsible for ordering all ope
 
 ## Visualizing the Flow
 
-<details>
-<summary>Click to view diagrams of the synchronization process</summary>
-
 ### Diagram 1: Fast-Forward Edit (The "Happy Path")
 
 This shows the simple case where a client sends changes based on the latest version. (Note: You will need to add `image.png` to the project root for this to display).
@@ -155,9 +152,7 @@ This diagram illustrates the more complex scenario where two users edit the docu
 
 You can view the diagram by opening this file in [Excalidraw](https://excalidraw.com/):
 
-`./concurrent_edit.excalidraw`
-
-</details>
+[download diagram](./concurrent_edit.excalidraw)
 
 ## Further Reading & References
 
