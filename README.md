@@ -32,7 +32,7 @@ The server maintains a version history for each document, inspired by Git's comm
 Clone the repository and install the dependencies:
 
 ```bash
-git clone <repository-url>
+git clone github.com/bethel-nz/ink
 cd crdt
 bun install
 ```
