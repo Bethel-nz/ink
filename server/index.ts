@@ -1,12 +1,10 @@
-import { VersionHistory, diff, DiffResult } from './versioning';
+import { VersionHistory, diff, type DiffResult } from './versioning';
 import {
-  Operation,
+  type Operation,
   applyOperations,
   operationalTransform,
   diffToOperations,
 } from '../common/ot';
-
-console.log('Starting real-time sync server on http://localhost:3000');
 
 // --- In-memory storage for note histories ---
 // In a real app, this would be a database.
@@ -44,7 +42,7 @@ function broadcastUserCount(noteId: string) {
 // --- The Sync Server ---
 
 Bun.serve<WebSocketData, undefined>({
-  port: 3000,
+  port: 3001,
   async fetch(req, server) {
     const url = new URL(req.url);
 
