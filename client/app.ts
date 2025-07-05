@@ -7,6 +7,7 @@ import {
   Operation,
 } from '../common/ot';
 import { diff } from '../server/versioning';
+import { throttle } from '../utils';
 
 document.addEventListener('DOMContentLoaded', () => {
   // --- DOM Element Selection ---
@@ -220,23 +221,24 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --- Event Listeners & Initial Load ---
+  const throttledSendUpdate = throttle(() => {
+    const currentText = editor.value;
+    let baseContentForDiff = synchronizedContent;
+    if (inFlightOps) {
+      baseContentForDiff = applyOperations(baseContentForDiff, inFlightOps);
+    }
+    if (pendingOps) {
+      baseContentForDiff = applyOperations(baseContentForDiff, pendingOps);
+    }
+    const ops = diffToOperations(diff(baseContentForDiff, currentText));
+    if (ops.length > 0) {
+      sendOperations(ops);
+    }
+  }, 150);
+
   editor.addEventListener('input', () => {
     updateStatus('Typing...', '#888');
-    clearTimeout(debounceTimer!);
-    debounceTimer = setTimeout(() => {
-      const currentText = editor.value;
-      let baseContentForDiff = synchronizedContent;
-      if (inFlightOps) {
-        baseContentForDiff = applyOperations(baseContentForDiff, inFlightOps);
-      }
-      if (pendingOps) {
-        baseContentForDiff = applyOperations(baseContentForDiff, pendingOps);
-      }
-      const ops = diffToOperations(diff(baseContentForDiff, currentText));
-      if (ops.length > 0) {
-        sendOperations(ops);
-      }
-    }, 500);
+    throttledSendUpdate();
   });
 
   if (copyRoomIdButton) {
