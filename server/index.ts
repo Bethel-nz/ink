@@ -1,6 +1,6 @@
-import { VersionHistory, diff, DiffResult } from './versioning';
+import { VersionHistory, diff, type DiffResult } from './versioning';
 import {
-  Operation,
+  type Operation,
   applyOperations,
   operationalTransform,
   diffToOperations,

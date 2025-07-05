@@ -4,7 +4,7 @@ import {
   diffToOperations,
   applyOperations,
   transformOperations,
-  Operation,
+  type Operation,
 } from '../common/ot';
 import { diff } from '../server/versioning';
 
