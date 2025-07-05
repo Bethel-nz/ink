@@ -33,7 +33,7 @@ Clone the repository and install the dependencies:
 
 ```bash
 git clone github.com/bethel-nz/ink
-cd crdt
+cd ink
 bun install
 ```
 
