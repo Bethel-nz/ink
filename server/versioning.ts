@@ -1,10 +1,6 @@
-// mini-git.ts
 // An implementation of a Git-like version control system for a single document.
 
 type Hash = string;
-
-// --- Step 1: Define the core data structures (Git Objects) ---
-// This section is unchanged.
 
 /**
  * Blob: Represents the raw content of the file (our text).
@@ -30,8 +26,6 @@ interface Commit {
 
 type GitObject = GitBlob | Tree | Commit;
 
-// --- Step 2.5: The NEW Diffing Algorithm (Character-Level) ---
-
 /**
  * Represents a diff for a single character.
  */
@@ -42,7 +36,6 @@ interface CharDiff {
 
 /**
  * Represents the result of a diff for a single line.
- * NOW INCLUDES LINE NUMBERS FOR MERGING.
  */
 export interface DiffResult {
   type: 'added' | 'removed' | 'unchanged' | 'modified';
@@ -56,7 +49,6 @@ export interface DiffResult {
 
 /**
  * Generates a character-by-character diff between two strings (lines).
- * This is the new core logic that works on individual characters.
  */
 function generateCharacterDiff(line1: string, line2: string): CharDiff[] {
   const chars1 = line1.split('');
@@ -67,7 +59,6 @@ function generateCharacterDiff(line1: string, line2: string): CharDiff[] {
     .fill(null)
     .map(() => Array(m + 1).fill(0));
 
-  // Build the Longest Common Subsequence (LCS) table for characters.
   for (let i = 1; i <= n; i++) {
     for (let j = 1; j <= m; j++) {
       if (chars1[i - 1] === chars2[j - 1]) {
@@ -78,7 +69,6 @@ function generateCharacterDiff(line1: string, line2: string): CharDiff[] {
     }
   }
 
-  // Reconstruct the diff from the LCS table.
   const result: CharDiff[] = [];
   let i = n,
     j = m;
@@ -101,16 +91,13 @@ function generateCharacterDiff(line1: string, line2: string): CharDiff[] {
 }
 
 /**
- * A diffing function that provides detailed character diffs.
- * This version processes the text character by character to generate
- * proper operations for OT.
+ * A diffing function that provides detailed character diffs for OT.
  */
 export function diff(text1: string, text2: string): DiffResult[] {
   if (text1 === text2) {
     return [];
   }
 
-  // Generate character-by-character diff
   const charDiffs = generateCharacterDiff(text1, text2);
   const results: DiffResult[] = [];
 
@@ -141,13 +128,9 @@ export function diff(text1: string, text2: string): DiffResult[] {
   return results;
 }
 
-// --- Step 2: The Version History Class ---
-// This section is unchanged.
-
 export class VersionHistory {
   private db: Map<Hash, GitObject> = new Map();
   private HEAD: Hash | null = null;
-  private redoStack: Hash[] = [];
   public readonly filename: string;
 
   constructor(filename: string = 'note.txt') {
@@ -183,13 +166,12 @@ export class VersionHistory {
     this.db.set(commitHash, commitData);
 
     this.HEAD = commitHash;
-    this.redoStack = [];
     return commitHash;
   }
 
   public getContent(commitHash: Hash | null): string | null {
     if (!commitHash) return null;
-    if (!this.db.has(commitHash)) return null; // Check if the hash exists
+    if (!this.db.has(commitHash)) return null;
     const commit = this.db.get(commitHash) as Commit;
     if (!commit) return null;
     const tree = this.db.get(commit.tree) as Tree;
@@ -201,18 +183,6 @@ export class VersionHistory {
 
   public getCurrentContent(): string | null {
     return this.getContent(this.HEAD);
-  }
-
-  public getDiff(commitHash1: Hash, commitHash2: Hash): DiffResult[] | null {
-    const content1 = this.getContent(commitHash1);
-    const content2 = this.getContent(commitHash2);
-
-    if (content1 === null || content2 === null) {
-      console.error('Could not find content for one or both commits.');
-      return null;
-    }
-
-    return diff(content1, content2);
   }
 
   public log() {
@@ -229,105 +199,4 @@ export class VersionHistory {
     }
     console.log('--------------------');
   }
-}
-
-// --- Step 3: Run the Demo Simulation ---
-
-/**
- * Helper function to render the diff results to the console with highlighting.
- */
-function renderDiff(changes: DiffResult[]) {
-  changes.forEach((change) => {
-    switch (change.type) {
-      case 'added':
-        console.log(`\x1b[32m+ ${change.line}\x1b[0m`); // Green text for additions
-        break;
-      case 'removed':
-        console.log(`\x1b[31m- ${change.line}\x1b[0m`); // Red text for removals
-        break;
-      case 'unchanged':
-        console.log(`  ${change.line}`);
-        break;
-      case 'modified':
-        // Build the string for the old line view with removed characters highlighted
-        const oldLine = change
-          .charDiffs!.filter((cd) => cd.type !== 'added')
-          .map((cd) =>
-            cd.type === 'removed'
-              ? `\x1b[41m\x1b[37m${cd.char}\x1b[0m` // Red background, white text
-              : cd.char
-          )
-          .join('');
-
-        // Build the string for the new line view with added characters highlighted
-        const newLine = change
-          .charDiffs!.filter((cd) => cd.type !== 'removed')
-          .map((cd) =>
-            cd.type === 'added'
-              ? `\x1b[42m\x1b[37m${cd.char}\x1b[0m` // Green background, white text
-              : cd.char
-          )
-          .join('');
-
-        console.log(`- ${oldLine}`);
-        console.log(`+ ${newLine}`);
-        break;
-    }
-  });
-}
-
-/**
- * Renders a character-level diff in a "unified diff" style, showing
- * chunks of changes inline with the context of unchanged text.
- */
-function renderUnifiedStyleDiff(changes: DiffResult[]) {
-  console.log('--- Unified Diff Renderer ---');
-  changes.forEach((change) => {
-    if (change.type === 'modified' && change.charDiffs) {
-      let unchangedChunk = '';
-      let removedChunk = '';
-      let addedChunk = '';
-
-      const flushChanges = () => {
-        if (unchangedChunk) {
-          console.log(`  ${unchangedChunk}`);
-          unchangedChunk = '';
-        }
-        if (removedChunk) {
-          console.log(`\x1b[31m- ${removedChunk}\x1b[0m`);
-          removedChunk = '';
-        }
-        if (addedChunk) {
-          console.log(`\x1b[32m+ ${addedChunk}\x1b[0m`);
-          addedChunk = '';
-        }
-      };
-
-      for (const diff of change.charDiffs) {
-        if (diff.type === 'unchanged') {
-          // If we were in a change block, flush it first
-          if (removedChunk || addedChunk) {
-            flushChanges();
-          }
-          unchangedChunk += diff.char;
-        } else if (diff.type === 'removed') {
-          // If we were in an unchanged block, flush it
-          if (unchangedChunk) {
-            flushChanges();
-          }
-          removedChunk += diff.char;
-        } else if (diff.type === 'added') {
-          if (unchangedChunk) {
-            flushChanges();
-          }
-          addedChunk += diff.char;
-        }
-      }
-      // Flush any remaining chunks
-      flushChanges();
-    } else if (change.type !== 'unchanged') {
-      console.log(`  Line ${change.type}: "${change.line}"`);
-    }
-  });
-  console.log('--------------------------');
 }
